@@ -5642,6 +5642,35 @@ var StringMask = require('string-mask');
 var validators = require('validators');
 
 function MoneyMaskDirective($locale, $parse, PreFormatters) {
+	var caret = {
+		set : function caretSet(element, pos) {
+			if (element[0].setSelectionRange) {
+				element[0].focus();
+				element[0].setSelectionRange(pos,pos);
+			} else if (element[0].createTextRange) {
+				var range = element[0].createTextRange();
+				range.collapse(true);
+				range.moveEnd('character', pos);
+				range.moveStart('character', pos);
+				range.select();
+			}
+		},
+		get : function caretGet(element) {
+			var iCaretPos = 0;
+			if (document.selection) {
+				element[0].focus();
+				var oSel = document.selection.createRange();
+				oSel.moveStart('character', -element[0].value.length);
+				iCaretPos = oSel.text.length;
+			} else if (
+				element[0].selectionStart || element[0].selectionStart === '0'
+			) {
+				iCaretPos = element[0].selectionStart;
+			}
+			return iCaretPos;
+		}
+	};
+
 	return {
 		restrict: 'A',
 		require: 'ngModel',
@@ -5711,10 +5740,22 @@ function MoneyMaskDirective($locale, $parse, PreFormatters) {
 					}
 				}
 
+				var currentCaretPosition = caret.get(element),
+  					lengthBefore = ctrl.$viewValue.length,
+  					lengthAfter = 0;
+
 				if (value !== formatedValue) {
 					ctrl.$setViewValue(formatedValue);
 					ctrl.$render();
+
+					lengthAfter = ctrl.$viewValue.length;
 				}
+
+				var caretFormatDiffer = (lengthAfter - lengthBefore) < 0
+  					? 0
+  					: lengthAfter - lengthBefore;
+  
+  				caret.set(element, currentCaretPosition + caretFormatDiffer);
 
 				return formatedValue ? parseInt(formatedValue.replace(/[^\d\-]+/g,''))/Math.pow(10,decimals) : null;
 			}
